@@ -3,33 +3,41 @@ title: "Répartition des installations sportives - Clermont-Ferrand"
 author: "Brice ALTSCHULER"
 output:
   flexdashboard::flex_dashboard:
-    theme: journal
+    theme: simplex
     source_code: embed
     self_contained : TRUE
     favicon : data/marianne-4.jpg
 ---
 
 ```{r setup, include=FALSE}
-# prep workspace
+# preparation de l'espace de travail
 library(tidyverse)
-library(leaflet)  # interative mapping
+library(leaflet)  # carte interactive
 library(leaflet.extras)
-library(DT)  # interactive tables
-library(crosstalk)  # inter-widget interactivity
-library(plotly)
+library(DT)  # datatable interactive
+library(crosstalk)  # interactivité inter-widget
+library(plotly)     # graphiques
 library(htmltools)
 library(leafem)
 library(sf)
+library(highcharter)
+library(leaflet.extras2)
+library(leafpop)
+
+library(webshot)
 ```
 
+
 ```{r chargement des données, include=FALSE}
-test_sd <- read.csv("data/vecteurs/structures_sportives.csv")
-test_sd[test_sd == "" ] <- NA
+test_sd <- read.csv("data/vecteurs/structures_sportives.csv")  # import du fichier de données
+effectif_scol <- read_csv("data/vecteurs/Effectifs_scolaires_par_établissements_publics_–_Ville_de_Clermont-Ferrand.csv")
+test_sd[test_sd == "" ] <- NA                                  # Remplissage des valeurs manquantes par NA
+test_sd <- test_sd[!duplicated(test_sd[c('Nom', 'Adresse')]),] # Suppression des lignes en doublon
 sd <- SharedData$new(test_sd)
 ```
 
 
-Données interactives {data-icon="ion-stats-bars"}
+Données interactives {data-icon="fa-map-o"}
 =====================================  
 
 Column {data-width=400}
@@ -53,37 +61,8 @@ bscols(
     sharedData = sd,
     group = ~Type,
     columns = 2
-  )#,
-  # filter_checkbox(
-  #   id = "Type",
-  #   label = "Type",
-  #   sharedData = sd,
-  #   group = ~Type
-  # )
+  )
 )
-
-# bscols(
-  # filter_slider(
-  #   id = "date",
-  #   label = "Date",
-  #   sharedData = sd,
-  #   column = ~date,
-  #   step = 1,
-  #   round = TRUE,
-  #   sep = "",
-  #   ticks = FALSE
-  # ),
-  # filter_slider(
-  #   id = "Nb",
-  #   label = "Quantité de voitures",
-  #   sharedData = sd,
-  #   column = ~Nb,
-  #   step = 1,
-  #   round = TRUE,
-  #   sep = "",
-  #   ticks = FALSE
-  # )
-# )
 ```
 </right>
 
@@ -116,29 +95,11 @@ sd %>%
         )
       ),
       buttons = list(
-        I("colvis"),  # turn columns on and off
-        "csv",  # download as .csv
-        "excel"  # download as .xlsx
+        I("colvis"),  # choix de l'affichage des colonnes
+        "csv",  # téléchargement en .csv
+        "excel"  # téléchargement en .xlsx
       )
     )
-    # colnames = c(
-    #   "URN" = "sch_urn",
-    #   "Name" = "sch_name",
-    #   "Type" = "sch_type",
-    #   "Type group" = "sch_type_group",
-    #   "Phase" = "sch_phase",
-    #   "Ofsted rating" = "ofsted_rating",
-    #   "Inspection date" = "ofsted_date",
-    #   "Pupil count" = "pupil_count",
-    #   "Pupil gender" = "pupil_gender",
-    #   "FSM per cent" = "pupil_percent_fsm",
-    #   "Town" = "geo_town",
-    #   "Postcode" = "geo_postcode",
-    #   "Local authority" = "geo_la",
-    #   "Rural-urban class" = "geo_urban_rural",
-    #   "RSC region" = "geo_rsc_region",
-    #   "Coordinates" = "geometry"
-    # )
   )
 ```
 
@@ -150,14 +111,12 @@ Column {.tabset data-width=300}
 ### Graphique interactif
 
 
-```{r}
-  p <- plot_ly(sd, x = ~Type, y = ~Categorie) #%>% 
-  # add_markers(alpha = 0.5)# %>%
-  # highlight("plotly_selected", dynamic = TRUE)
+```{r include=FALSE}
+  p <- plot_ly(sd, x = ~Type, y = ~Categorie)
 ```
 
 <center>
-```{r}
+```{r affichage de la heatmap,echo=FALSE}
 p
 ```
 </center>
@@ -171,37 +130,49 @@ iconSet <- iconList(
 ```
 
 ```{r include=FALSE}
-carte_monde <- st_read(
-  dsn = "data/vecteurs/planisphere/TM_WORLD_BORDERS-0.3.shp"
-  )
+# Import de la couche vectorielle du département
+limites_departement <- st_read(
+  dsn = "data/vecteurs/departement-63/limite_departement_63.shp"
+)
 ```
+
 
 ```{r}
 #Création du data filtré - support de la carte de chaleur (intégrée dans Leaflet)
-sites_heatmap <- test_sd%>%
-  drop_na(Latitude)
+
+sites_heatmap <- sd #test_sd
 ```
 
-```{r map}
-sd %>%
+
+```{r map, include=FALSE}
+map_master <- sd %>%
   leaflet::leaflet() %>%
   addTiles(
     attribution = paste(
-    "&copy; <a href=\"http://openstreetmap.org\">OpenStreetMap</a> contributors",
     "&copy; <a href=\"https://www.data.gouv.fr/fr/datasets/structures-sportives-2021-ville-de-clermont-ferrand\">Clermont Auvergne Métropole</a>"
-  )) %>%
-  addPolygons(
-    data = carte_monde,                                # Ajout du planisphère
+  ),
+  group = "Cartographie"
+  ) %>%
+   addProviderTiles(
+     'Esri.WorldImagery',
+     group = "Image satellite"
+     ) %>%
+  addProviderTiles(
+    "CartoDB.PositronOnlyLabels",
+    group = "Image satellite"
+    ) %>%
+    addMouseCoordinates(
+    proj4string = 'DMS'
+    )%>%                                                       # Ajout des coordonnées
+  addPolylines(
+    data = limites_departement,                                # Ajout des limites département 63
     color = 'black',
     weight = 1,
-    opacity = 0,
-    fillOpacity = 0,
-    fill = FALSE,
-    group = "Vue générale"
+    opacity = 1,
+    fillOpacity = 0.5,
+    fill = F,
+    group = "63"
   )%>%
-  addMouseCoordinates(
-    proj4string = 'DMS'
-    )%>%         # Ajout des coordonnées
   leaflet::addAwesomeMarkers(
     popup = ~paste0(
       "<h5>", test_sd$Nom, "</h5>",
@@ -222,20 +193,6 @@ sd %>%
       "<tr>",
       "<tr>",
       "<th>Type : </th>"#,
-      # "<th>", test_sd$sch_type, "</th>",
-      # "</tr>",
-      # 
-      # "<tr>",
-      # "<tr>",
-      # "<th>Location</th>",
-      # "<th>", test_sd$geo_town, ", ", sch$geo_postcode, "</th>",
-      # "</tr>",
-      # 
-      # "<tr>",
-      # "<tr>",
-      # "<th>LA</th>",
-      # "<th>", test_sd$geo_la, "</th>",
-      # "</tr>"
     ),  # end popup()
     icon = awesomeIcons(
       library = "ion",
@@ -253,14 +210,14 @@ sd %>%
     ),group = "Localisation"
   ) %>%   # end addAwesomeMarkers()
   addHeatmap(                                         # Ajout de la carte de chaleur
-    data = sites_heatmap,
+    data = test_sd,
     lng = ~Longitude,
     lat = ~Latitude,
-    blur = 10,#27
+    blur = 27,#27
     max = 0.55,#0.02
     radius = 15,#15
     group = "Répartition infrastructures sportives <i>Heatmap</i>")%>%
-  addMarkers(                                         # Ajout de la carte de densité chifrée
+  addMarkers(                                         # Ajout de la carte de densité chiffrée
     data = test_sd,
     lng = ~Longitude,
     lat = ~Latitude,
@@ -273,36 +230,167 @@ sd %>%
     clusterOptions = markerClusterOptions()
     )%>%
   addLayersControl(                                   # Ajout du menu de gestion des couches
-    baseGroups = (c("Localisation", "Répartition infrastructures sportives <i>Heatmap</i>", "Répartition infrastructures sportives"))
-    # ,
-    # overlayGroups = "Sites"
+    baseGroups = (
+      c("Localisation", "Répartition infrastructures sportives <i>Heatmap</i>", "Répartition infrastructures sportives")
+      )
+    ,
+    overlayGroups = (
+      c("Image satellite", "Cartographie")
+      )
   )%>%
-  setView(lng = 3, lat = 46,zoom = 5)%>%
   addMeasure(                                         # Ajout de la fonctionnalité de prise de mesures
     primaryLengthUnit = "kilometers",                 # Configuration des unités de mesure
     primaryAreaUnit = "sqmeters"
     ) %>%
-  # addLegend( title = "Légende",                                  # Ajout de la légende
-  #   "bottomright", colors = "magenta", labels = "Sites"
-  #   )%>%
   addScaleBar(position = "bottomleft",                # Ajout de l'échelle
               options = scaleBarOptions(metric = TRUE)
               )%>%
   setView(                                            # Définition de la zone de visualisation par défaut
-    3, 46, zoom = 5
+    3.09, 45.78, zoom = 12
     )%>%
   addHomeButton(                                      # Création d'un bouton de retour à la vue d'origine (setView)
-    position = "bottomleft", group = "Vue générale"
+    position = "bottomleft",
+    group = "63",
     )%>%
-  addFullscreenControl(position = "topleft")%>%
-  removeMouseCoordinates(
-      )%>% # Ajout de la fonction "plein écran"
+  addFullscreenControl(                               # Ajout de la fonction "plein écran"
+    position = "topleft"
+    )%>%
   addMiniMap(position = "bottomleft",
+             width = 120,
+             height = 120,
+             toggleDisplay = T,
              minimized = F,
-             strings = list(hideText = "Hide MiniMap", showText = "Show MiniMap"))
-  
+             strings = list(hideText = "Hide MiniMap",
+                            showText = "Show MiniMap")
+             )%>%
+  addLogo("data/Sans titre.png",                    # Ajout du logo "CoBalt"
+                position = "bottomleft",
+                offset.x = 45,
+                offset.y = 40,
+                width = 75,
+                height = 75)%>%
+  addEasyprint(options = easyprintOptions(
+  title = "Print map",
+  position = "topleft",
+  sizeModes = list("A4Portrait", "A4Landscape", "Current"),
+  defaultSizeTitles = NULL,
+  exportOnly = FALSE,
+  tileLayer = NULL,
+  tileWait = 500,
+  filename = "map",
+  hidden = FALSE,
+  hideControlContainer = TRUE,
+  hideClasses = list(),
+  customWindowTitle = NULL,
+  spinnerBgColor = "#0DC5C1",
+  customSpinnerClass = "epLoader"
+))
 ```
 
+```{r}
+map_master%>%
+  setMaxBounds( lng1 = 0.85,
+                lat1 = 46.7,
+                lng2 = 5.21301,
+                lat2 = 44.81692)
+```
+
+
+Représentations graphiques {data-icon="fa-pie-chart"}
+=====================================
+
+Column {.tabset data-width=300}
+-------------------------------------
+### Diagramme en radar
+
+```{r diagramme en radar, echo=FALSE}
+library(apexcharter)
+
+apex(data = test_sd, type = "radar", mapping = aes(x = Categorie))%>% 
+  ax_title(text = "Répartition des infrastructures sportives à Clermont-Ferrand", align = "center") %>%
+  ax_subtitle(text = "NR = Non Renseigné", align = "center") %>%
+  ax_legend()
+```
+
+### Diagrammes superposés
+
+```{r diagrammes supersposés, echo=FALSE}
+
+apexchart(ax_opts = list(
+  chart = list(
+    type = "line"
+  ),
+  stroke = list(
+    curve = "smooth"
+  ),
+  grid = list(
+    borderColor = "#e7e7e7",
+    row = list(
+      colors = c("#f3f3f3", "transparent"),
+      opacity = 0.5
+    )
+  ),
+  dataLabels = list(
+    enabled = TRUE
+  ),
+  markers = list(style = "inverted", size = 6),
+  series = list(
+    list(
+      name = "High",
+      data = effectif_scol$CM2
+    ),
+    list(
+      name = "Low",
+      data = effectif_scol$CM1
+    )
+  ),
+  title = list(
+    text = "Nb élèves CM1/CM2 par établissement",
+    align = "left"
+  ),
+  xaxis = list(
+    categories = effectif_scol$LIEU
+  ),
+  yaxis = list(
+    title = list(text = "Nombre d'élèves"),
+    labels = list(
+      formatter = htmlwidgets::JS("function(value) {return value + '\u00b0C';}") # Ajout du symbole ° en UNICODE
+    )
+  )
+))
+```
+
+
+### Diagramme radial
+```{r}
+repartition_categories <- test_sd %>%
+  group_by(
+    Categorie
+    ) %>%
+  summarise(
+    valeur = n()/103*100
+    )
+
+repartition_categories$valeur <- round(
+  (repartition_categories$valeur),
+  digit = 2
+  )
+
+
+Repartition <- data.frame(
+  name = repartition_categories$Categorie,
+  value = repartition_categories$valeur)
+
+
+apex(data = Repartition,
+    type = "radialBar",
+    mapping = aes(x = name, y = value)
+    ) %>%
+  ax_title(text = "Répartition des infrastructures sportives à Clermont-Ferrand", align = "center")%>%
+  ax_subtitle(text = "NR = Non Renseigné", align = "center") %>%
+  ax_legend()
+
+```
 
 
 Information {data-orientation=rows data-icon="fa-info-circle"}
@@ -323,45 +411,43 @@ Note that this material is restricted to **published data only** and **does not 
 
 ### How to use
 
-#### Filters
+#### Filtres
 
 Vous pouvez :
 
-* sélectionnez une ou plusieurs collectivités locales dans le menu déroulant (supprimez-les avec votre touche retour arrière)
-* sélectionnez une ou plusieurs notes Ofsted en utilisant les cases à cocher
-* sélectionnez la phase d'enseignement avec les cases à cocher
-* faites glisser le curseur pour sélectionner un nombre de pupilles
-* faites glisser le curseur pour filtrer par pourcentage d'élèves recevant des repas scolaires gratuits
+* sélectionnez une ou plusieurs infrastructures sportives dans le menu déroulant (supprimez-les avec la touche <i>retour arrière</i>)
+* sélectionnez un ou plusieurs type d'infrastructures en utilisant les cases à cocher
 
-#### Interactive map
+
+#### Carte interactive
 
 Vous pouvez :
 
-* cliquer pour saisir et faire glisser la carte autour
-* zoomer avec les boutons '+' et '--' (en haut à gauche) ou avec la molette de votre souris
+* cliquer pour saisir et faire glisser la carte afin de naviguer
+* zoomer avec les boutons '+' et '--' (en haut à gauche) ou avec la molette de votre souris ou en sélectionnant la zone sur laquelle zoomer avec shift clic droit de la souris
 * cliquer sur un marqueur pour afficher une fenêtre contextuelle contenant des informations sur cette infrastructure sportive
 * cliquer sur le bouton montrant un carré brisé (en haut à gauche sous les options de zoom) pour sélectionner des points sur la carte à l'aide d'une fenêtre déplaçable (cliquez et maintenez l'icône de grille en haut à gauche) et redimensionnable (cliquez et faites glisser les cases blanches dans chaque coin)
 
-#### Interactive table
+#### Tableau interactif
 
-You can:
+Vous pouvez:
 
-* filter each column by typing in the boxes under each column header
-* sort the columns (ascending and descending) by clicking on the column header
-* change which columns are visible by clicking the Column visibility button
-* click 'CSV' or 'Excel' to download the filtered data to a .csv file or a .xlsx
-* see how many entries remain after filtering in the bottom-left, where it says 'Showing X to Y of Z entries'
+* filtrer chaque colonne en activant les cases sous chaque en-tête de colonne
+* trier les colonnes (croissant et décroissant) en cliquant sur l'en-tête des colonnes
+* modifier les colonnes visibles en cliquant sur le bouton Visibilité des colonnes
+* cliquer sur 'CSV' ou 'Excel' pour télécharger les données filtrées dans un fichier .csv ou .xlsx
+* voir combien d'entrées restent après le filtrage en bas à gauche, où il est indiqué "Showing X to Y of Z entreies"
 
-### Tools
+### Outils
 
-[R v3.4.4](https://www.r-project.org/) and [RStudio v1.1.442](https://www.rstudio.com/) were used to build this tool.
+[R v4.1.1](https://www.r-project.org/) et [RStudio 2021.09.1](https://www.rstudio.com/) ont été utilisés pour construire cet outil.
 
-The packages used were:
+Liste des packages utilisés:
 
-* [Flexdashboard](https://rmarkdown.rstudio.com/flexdashboard/) to create a frame for the content
-* [Leaflet](https://rstudio.github.io/leaflet/) for the interactive map
-* [DT](https://rstudio.github.io/DT/) for the interactive table
-* [Crosstalk](https://rstudio.github.io/crosstalk/) for widget interactivity
-* [Ion icons](https://ionicons.com/) and [Font Awesome](https://fontawesome.com/) for icons
+* [Flexdashboard](https://rmarkdown.rstudio.com/flexdashboard/)
+* [Leaflet](https://rstudio.github.io/leaflet/)
+* [DT](https://rstudio.github.io/DT/)
+* [Crosstalk](https://rstudio.github.io/crosstalk/)
+* [Ion icons](https://ionicons.com/) et [Font Awesome](https://fontawesome.com/)
 
-The code for this tool is available from [github.com/matt-dray/earl18-crosstalk](https://github.com/matt-dray/earl18-crosstalk). The presentation is available from [github.com/matt-dray/earl18-presentation](https://github.com/matt-dray/earl18-presentation).
+Le code de cet outil de visualisation est librement inspiré de celui disponible ici [github.com/matt-dray/earl18-crosstalk](https://github.com/matt-dray/earl18-crosstalk). La présentation est disponible ici [github.com/matt-dray/earl18-presentation](https://github.com/matt-dray/earl18-presentation).
