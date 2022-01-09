@@ -312,53 +312,6 @@ apex(data = test_sd, type = "radar", mapping = aes(x = Categorie))%>%
   ax_legend()
 ```
 
-### Diagrammes superposés
-
-```{r diagrammes supersposés, echo=FALSE}
-
-apexchart(ax_opts = list(
-  chart = list(
-    type = "line"
-  ),
-  stroke = list(
-    curve = "smooth"
-  ),
-  grid = list(
-    borderColor = "#e7e7e7",
-    row = list(
-      colors = c("#f3f3f3", "transparent"),
-      opacity = 0.5
-    )
-  ),
-  dataLabels = list(
-    enabled = TRUE
-  ),
-  markers = list(style = "inverted", size = 6),
-  series = list(
-    list(
-      name = "High",
-      data = effectif_scol$CM2
-    ),
-    list(
-      name = "Low",
-      data = effectif_scol$CM1
-    )
-  ),
-  title = list(
-    text = "Nb élèves CM1/CM2 par établissement",
-    align = "left"
-  ),
-  xaxis = list(
-    categories = effectif_scol$LIEU
-  ),
-  yaxis = list(
-    title = list(text = "Nombre d'élèves"),
-    labels = list(
-      formatter = htmlwidgets::JS("function(value) {return value + '\u00b0C';}") # Ajout du symbole ° en UNICODE
-    )
-  )
-))
-```
 
 
 ### Diagramme radial
@@ -401,15 +354,9 @@ Information {data-orientation=rows data-icon="fa-info-circle"}
 
 Cette étude visuelle a été réalisée à partir des données disponibles sur le site <i>data.gouv.fr</i> [Structures sportives 2021 - Ville de Clermont-Ferrand ](https://www.data.gouv.fr/fr/datasets/structures-sportives-2021-ville-de-clermont-ferrand/).
 
-> Self-service interactive tools have great power to support decisions by policy-makers. Shiny apps are a natural fit for this, but it's not always easy to share them within the public sector. This is due to issues like a lack of server space, highly sensitive data and users who aren't R-savvy.
->
->We've approached this problem in the UK's Department for Education by sharing interactive HTML widgets – embeddable JavaScript visualisation libraries – within RMarkdown outputs. Interactivity is, however, limited because selections in one widget don’t impact the data presented in another.
->
->[Joe Cheng's Crosstalk package](http://rstudio.github.io/crosstalk/) overcomes this with shared data objects that react to user inputs, altering the content of multiple widgets on the fly. I'll explain how I used Crosstalk to develop a 'pseudo-app' for exploring schools data with the Leaflet (maps), Plotly (charts) and DT (tables) widgets inside the Flexdashboard framework and how I shared it easily with policy-making users as a static HTML file for exploration in the browser.
+> En cours de rédaction...
 
-Note that this material is restricted to **published data only** and **does not reflect or constitute official government policy**.
-
-### How to use
+### Utilisation
 
 #### Filtres
 
@@ -451,3 +398,5 @@ Liste des packages utilisés:
 * [Ion icons](https://ionicons.com/) et [Font Awesome](https://fontawesome.com/)
 
 Le code de cet outil de visualisation est librement inspiré de celui disponible ici [github.com/matt-dray/earl18-crosstalk](https://github.com/matt-dray/earl18-crosstalk). La présentation est disponible ici [github.com/matt-dray/earl18-presentation](https://github.com/matt-dray/earl18-presentation).
+
+
